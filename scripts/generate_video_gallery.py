@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from moviepy.editor import VideoFileClip
+import cv2
 from PIL import Image
 
 base_url = "https://github.com/beltedblinds/idols-video-01/raw/refs/heads/main/"
@@ -8,13 +8,16 @@ output_file = "idol_video_links.txt"
 
 def extract_first_frame(video_path, thumb_path):
     try:
-        clip = VideoFileClip(str(video_path))
-        frame = clip.get_frame(0)
-        img = Image.fromarray(frame)
-        img.thumbnail((300, 300))
-        img.save(thumb_path, "WEBP")
-        clip.close()
-        print(f"✅ Created thumbnail for {video_path}")
+        cap = cv2.VideoCapture(str(video_path))
+        success, frame = cap.read()
+        if success:
+            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            img.thumbnail((300, 300))
+            img.save(thumb_path, "WEBP")
+            print(f"✅ Created thumbnail for {video_path}")
+        else:
+            print(f"⚠️ Could not read frame from {video_path}")
+        cap.release()
     except Exception as e:
         print(f"⚠️ Error creating thumbnail for {video_path}: {e}")
 
