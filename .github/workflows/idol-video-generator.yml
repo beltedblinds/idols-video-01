@@ -1,10 +1,10 @@
 name: Idol Video Gallery Generator
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 permissions:
-  contents: write  # Allow workflow to push changes
+  contents: write
 
 jobs:
   generate:
@@ -29,6 +29,7 @@ jobs:
 
       - name: Generate idol_video_links.txt
         run: |
+          python <<'PYCODE'
           import os
           from moviepy.editor import VideoFileClip
           from pathlib import Path
@@ -68,6 +69,7 @@ jobs:
               f.write("\n".join(lines))
 
           print(f"✅ Generated {len(lines)} entries in {output_file}")
+          PYCODE
 
       - name: Commit and push results
         run: |
