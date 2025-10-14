@@ -1,0 +1,94 @@
+name: Idol Video Gallery Generator
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+permissions:
+  contents: write  # ✅ Allow the workflow to commit & push
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install Pillow moviepy
+
+      - name: Generate thumbnails and video links
+        run: |
+          python <<'PYCODE'
+          import os
+          from moviepy.editor import VideoFileClip
+          from PIL import Image
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          branch = "main"
+          base_raw = f"https://raw.githubusercontent.com/{repo}/{branch}/"
+
+          output_lines = []
+          total, updated = 0, 0
+
+          for root, dirs, files in os.walk("."):
+              if any(skip in root for skip in [".github", "thumbnails", ".git"]):
+                  continue
+
+              for file in files:
+                  if not file.lower().endswith((".mp4", ".mov", ".webm")):
+                      continue
+
+                  total += 1
+                  input_path = os.path.join(root, file)
+                  relative_path = os.path.relpath(input_path, ".")
+                  folder = os.path.dirname(relative_path)
+                  folder_name = folder.split(os.sep)[-1] if folder else ""
+
+                  thumb_folder = os.path.join("thumbnails", folder)
+                  os.makedirs(thumb_folder, exist_ok=True)
+                  thumb_path = os.path.join(thumb_folder, file.rsplit(".", 1)[0] + ".webp")
+
+                  try:
+                      clip = VideoFileClip(input_path)
+                      frame = clip.get_frame(0)  # first frame
+                      img = Image.fromarray(frame)
+                      img.thumbnail((300, 300))
+                      img.save(thumb_path, format="WEBP")
+                      clip.close()
+                      updated += 1
+                      print(f"✅ Thumbnail created for: {file}")
+                  except Exception as e:
+                      print(f"⚠️ Failed to create thumbnail for {file}: {e}")
+                      continue
+
+                  raw_url = f"{base_raw}{relative_path}".replace(" ", "%20")
+                  thumb_url = f"{base_raw}{thumb_path}".replace(" ", "%20")
+
+                  output_lines.append(f"{folder_name}, {raw_url}, {thumb_url}, video")
+
+          output_lines.sort()
+
+          with open("idol_video_links.txt", "w", encoding="utf-8") as f:
+              f.write("\n".join(output_lines))
+
+          print(f"📄 Created idol_video_links.txt — {updated}/{total} videos processed")
+          PYCODE
+
+      - name: Commit and push results
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add thumbnails idol_video_links.txt || true
+          git commit -m "Update video thumbnails and video links" || echo "No changes to commit"
+          git pull --rebase
+          git push
