@@ -1,0 +1,60 @@
+name: Copy Folder Structure from idols-media-01
+
+on:
+  workflow_dispatch:  # Allows you to run it manually
+
+permissions:
+  contents: write
+
+jobs:
+  copy_structure:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout idols-video-01 repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: idols-video-01
+          persist-credentials: true
+
+      - name: Checkout idols-media-01 repo
+        uses: actions/checkout@v4
+        with:
+          repository: beltedblinds/idols-media-01
+          path: idols-media-01
+
+      - name: Copy folder structure (exclude some)
+        run: |
+          python <<'PYCODE'
+          import os
+          from pathlib import Path
+          import shutil
+
+          source_root = Path("idols-media-01")
+          target_root = Path("idols-video-01")
+
+          excluded = {".github/workflows", "thumbnails", "idol_gallery_links.txt"}
+
+          for root, dirs, files in os.walk(source_root):
+              rel = Path(root).relative_to(source_root)
+              # Skip excluded paths
+              if any(str(rel).startswith(ex) for ex in excluded):
+                  continue
+              target_dir = target_root / rel
+              os.makedirs(target_dir, exist_ok=True)
+              # Add .gitkeep if folder is empty
+              if not any(os.scandir(target_dir)):
+                  (target_dir / ".gitkeep").touch()
+
+          print("✅ Folder structure copied successfully with .gitkeep placeholders!")
+          PYCODE
+
+      - name: Commit and push changes
+        run: |
+          cd idols-video-01
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Sync folder structure from idols-media-01" || echo "No changes to commit"
+          git push
