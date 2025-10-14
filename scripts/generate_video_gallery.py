@@ -58,7 +58,8 @@ for root, _, files in os.walk("."):
             video_url = base_url + str(relative_path).replace(" ", "%20")
             thumb_url = base_url + str(thumb_path).replace(" ", "%20")
 
-            lines.append(f"{idol_name}, {video_url}, {thumb_url}, Video")
+            # ✅ Leave category blank (same as idols-media-01)
+            lines.append(f"{idol_name}, {video_url}, {thumb_url}, ")
 
 # Sort and write the links file
 lines.sort()
@@ -71,18 +72,12 @@ print(f"\n✅ Generated {len(lines)} entries in {output_file}")
 removed = 0
 if thumb_root.exists():
     for thumb_file in thumb_root.rglob("*.webp"):
-        # find the corresponding video path by looking for same stem in same relative folder
-        # original video is expected at same relative location but without thumbnails/ prefix and with video ext
         rel = thumb_file.relative_to(thumb_root)  # e.g. "Aespa Karina/video1.webp"
         possible_video_dir = Path(".") / rel.parent  # e.g. "./Aespa Karina"
         stem = thumb_file.stem  # video filename without extension
+
         # check for any video with the same stem and supported extensions
-        found_video = False
-        for ext in (".mp4", ".mov", ".webm"):
-            candidate = possible_video_dir / (stem + ext)
-            if candidate.exists():
-                found_video = True
-                break
+        found_video = any((possible_video_dir / (stem + ext)).exists() for ext in (".mp4", ".mov", ".webm"))
 
         if not found_video:
             try:
